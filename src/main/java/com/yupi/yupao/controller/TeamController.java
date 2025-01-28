@@ -99,19 +99,28 @@ public class TeamController {
         List<TeamUserVO> teamList = teamService.listTeams(teamQuery, isAdmin);
         final List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
         // 2、判断当前用户是否已加入队伍
-        QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
         try {
             User loginUser = userService.getLoginUser(request);
+            QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
             userTeamQueryWrapper.eq("userId", loginUser.getId());
-            userTeamQueryWrapper.in("teamId", teamIdList);
-            List<UserTeam> userTeamList = userTeamService.list(userTeamQueryWrapper);
-            // 已加入的队伍 id 集合
-            Set<Long> hasJoinTeamIdSet = userTeamList.stream().map(UserTeam::getTeamId).collect(Collectors.toSet());
-            teamList.forEach(team -> {
-                boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
-                team.setHasJoin(hasJoin);
-            });
+            
+            // 只有当 teamIdList 非空且有元素时才添加 in 条件
+            if (teamIdList != null && !teamIdList.isEmpty()) {
+                userTeamQueryWrapper.in("teamId", teamIdList);
+                List<UserTeam> userTeamList = userTeamService.list(userTeamQueryWrapper);
+                // 已加入的队伍 id 集合
+                Set<Long> hasJoinTeamIdSet = userTeamList.stream().map(UserTeam::getTeamId).collect(Collectors.toSet());
+                teamList.forEach(team -> {
+                    boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
+                    team.setHasJoin(hasJoin);
+                });
+            } else {
+                // 如果 teamIdList 为空，直接返回空结果
+                return ResultUtils.success(new ArrayList<>());
+            }
         } catch (Exception e) {
+            log.error("获取用户加入队伍信息失败", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "获取队伍列表失败");
         }
         // 3、查询已加入队伍的人数
         QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();

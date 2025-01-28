@@ -65,7 +65,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "星球编号过长");
         }
         // 账户不能包含特殊字符
-        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
+        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             return -1;
@@ -117,7 +117,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return null;
         }
         // 账户不能包含特殊字符
-        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
+        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             return null;
@@ -297,14 +297,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 .sorted((a, b) -> (int) (a.getValue() - b.getValue()))
                 .limit(num)
                 .collect(Collectors.toList());
-        // 原本顺序的 userId 列表
-        List<Long> userIdList = topUserPairList.stream().map(pair -> pair.getKey().getId()).collect(Collectors.toList());
-        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
-        userQueryWrapper.in("id", userIdList);
-        // 1, 3, 2
-        // User1、User2、User3
-        // 1 => User1, 2 => User2, 3 => User3
-        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper)
+        // 修改：如果匹配的用户列表为空，直接返回空列表
+        if (topUserPairList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 有匹配用户时，再查询详细信息
+        List<Long> userIdList = topUserPairList.stream()
+                .map(pair -> pair.getKey().getId())
+                .collect(Collectors.toList());
+        
+        // 根据 id 查询用户
+        queryWrapper = new QueryWrapper<>();
+        queryWrapper.in("id", userIdList);
+        Map<Long, List<User>> userIdUserListMap = this.list(queryWrapper)
                 .stream()
                 .map(user -> getSafetyUser(user))
                 .collect(Collectors.groupingBy(User::getId));
